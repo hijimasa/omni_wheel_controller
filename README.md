@@ -2,7 +2,7 @@
 Omni wheel controllers to accompany ros2_control (unofficial)
 This package is based on diff_drive_controller.
 
-- This package checked in docker "ros:humble" image.
+- This package checked in docker "ros:humble" image. Sample code is [here](https://github.com/hijimasa/omni_wheel_controller_sample).
 
 # Overview
 
