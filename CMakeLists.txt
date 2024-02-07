@@ -48,8 +48,7 @@ ament_target_dependencies(omni_wheel_controller PUBLIC ${THIS_PACKAGE_INCLUDE_DE
 target_compile_definitions(omni_wheel_controller PRIVATE "OMNI_WHEEL_CONTROLLER_BUILDING_DLL")
 pluginlib_export_plugin_description_file(controller_interface omni_wheel_plugin.xml)
 
-if(0)
-#if(BUILD_TESTING)
+if(BUILD_TESTING)
   find_package(ament_cmake_gmock REQUIRED)
   find_package(controller_manager REQUIRED)
   find_package(ros2_control_test_assets REQUIRED)
@@ -74,6 +73,8 @@ if(0)
   ament_add_gmock(test_load_omni_wheel_controller
     test/test_load_omni_wheel_controller.cpp
   )
+  target_include_directories(test_load_omni_wheel_controller PUBLIC
+  test)
   ament_target_dependencies(test_load_omni_wheel_controller
     controller_manager
     ros2_control_test_assets

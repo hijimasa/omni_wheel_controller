@@ -17,9 +17,10 @@
 
 #include "controller_manager/controller_manager.hpp"
 #include "rclcpp/utilities.hpp"
-#include "ros2_control_test_assets/descriptions.hpp"
+//#include "ros2_control_test_assets/descriptions.hpp"
+#include "descriptions.hpp"
 
-TEST(TestLoadDiffDriveController, load_controller)
+TEST(TestLoadOmniWheelController, load_controller)
 {
   rclcpp::init(0, nullptr);
 
@@ -27,11 +28,11 @@ TEST(TestLoadDiffDriveController, load_controller)
     std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
 
   controller_manager::ControllerManager cm(
-    std::make_unique<hardware_interface::ResourceManager>(ros2_control_test_assets::diffbot_urdf),
+    std::make_unique<hardware_interface::ResourceManager>(ros2_control_test_assets::omni_wheel_robot_urdf),
     executor, "test_controller_manager");
 
   ASSERT_NE(
-    cm.load_controller("test_diff_drive_controller", "diff_drive_controller/DiffDriveController"),
+    cm.load_controller("test_omni_wheel_controller", "omni_wheel_controller/OmniWheelController"),
     nullptr);
 
   rclcpp::shutdown();
