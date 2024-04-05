@@ -85,7 +85,7 @@ bool Odometry::update(std::vector<double> omni_wheel_pos, const rclcpp::Time & t
 
   // Estimate speeds using a rolling mean to filter them out:
   linear_x_accumulator_.accumulate(lin_x / dt);
-  linear_y_accumulator_.accumulate(lin_x / dt);
+  linear_y_accumulator_.accumulate(lin_y / dt);
   angular_accumulator_.accumulate(angular / dt);
 
   lin_x_ = linear_x_accumulator_.getRollingMean();
