@@ -16,6 +16,7 @@
 #include <memory>
 
 #include "controller_manager/controller_manager.hpp"
+#include "rclcpp/executors/single_threaded_executor.hpp"
 #include "rclcpp/utilities.hpp"
 //#include "ros2_control_test_assets/descriptions.hpp"
 #include "descriptions.hpp"
@@ -28,8 +29,7 @@ TEST(TestLoadOmniWheelController, load_controller)
     std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
 
   controller_manager::ControllerManager cm(
-    std::make_unique<hardware_interface::ResourceManager>(ros2_control_test_assets::omni_wheel_robot_urdf),
-    executor, "test_controller_manager");
+    executor, ros2_control_test_assets::omni_wheel_robot_urdf, true, "test_controller_manager");
 
   ASSERT_NE(
     cm.load_controller("test_omni_wheel_controller", "omni_wheel_controller/OmniWheelController"),

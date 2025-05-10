@@ -95,7 +95,7 @@ controller_interface::return_type OmniWheelController::update(
 {
 
   auto logger = get_node()->get_logger();
-  if (get_state().id() == State::PRIMARY_STATE_INACTIVE)
+  if (get_lifecycle_state().id() == State::PRIMARY_STATE_INACTIVE)
   {
     if (!is_halted)
     {
