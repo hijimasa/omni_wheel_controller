@@ -25,8 +25,15 @@
 #include <cmath>
 
 #include "rclcpp/time.hpp"
-//#include "rcpputils/rolling_mean_accumulator.hpp"
+
+// ROS 2 Jazzy moved RollingMeanAccumulator from rcppmath to rcpputils
+#if __has_include("rcpputils/rolling_mean_accumulator.hpp")
+#include "rcpputils/rolling_mean_accumulator.hpp"
+#define OMNI_WHEEL_USE_RCPPUTILS_ROLLING_MEAN 1
+#else
 #include "rcppmath/rolling_mean_accumulator.hpp"
+#define OMNI_WHEEL_USE_RCPPUTILS_ROLLING_MEAN 0
+#endif
 
 #include <Eigen/QR>
 
@@ -133,8 +140,11 @@ public:
   void setVelocityRollingWindowSize(size_t velocity_rolling_window_size);
 
 private:
-//  using RollingMeanAccumulator = rcpputils::RollingMeanAccumulator<double>;
+#if OMNI_WHEEL_USE_RCPPUTILS_ROLLING_MEAN
+  using RollingMeanAccumulator = rcpputils::RollingMeanAccumulator<double>;
+#else
   using RollingMeanAccumulator = rcppmath::RollingMeanAccumulator<double>;
+#endif
 
   void integrateRungeKutta2(double lin_x, double lin_y, double angular);
   void integrateExact(double lin_x, double lin_y, double angular);

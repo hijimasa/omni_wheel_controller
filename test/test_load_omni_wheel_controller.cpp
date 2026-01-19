@@ -20,6 +20,14 @@
 //#include "ros2_control_test_assets/descriptions.hpp"
 #include "descriptions.hpp"
 
+// Check for ROS 2 Jazzy+ API changes
+#include <rclcpp/version.h>
+#if RCLCPP_VERSION_GTE(28, 0, 0)
+#define OMNI_WHEEL_ROS2_JAZZY_OR_LATER 1
+#else
+#define OMNI_WHEEL_ROS2_JAZZY_OR_LATER 0
+#endif
+
 TEST(TestLoadOmniWheelController, load_controller)
 {
   rclcpp::init(0, nullptr);
@@ -27,9 +35,20 @@ TEST(TestLoadOmniWheelController, load_controller)
   std::shared_ptr<rclcpp::Executor> executor =
     std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
 
+#if OMNI_WHEEL_ROS2_JAZZY_OR_LATER
+  // In Jazzy+, ResourceManager constructor requires additional parameters
+  auto node = std::make_shared<rclcpp::Node>("test_resource_manager_node");
+  auto rm = std::make_unique<hardware_interface::ResourceManager>(
+    ros2_control_test_assets::omni_wheel_robot_urdf,
+    node->get_node_clock_interface(),
+    node->get_node_logging_interface());
+  controller_manager::ControllerManager cm(
+    std::move(rm), executor, "test_controller_manager");
+#else
   controller_manager::ControllerManager cm(
     std::make_unique<hardware_interface::ResourceManager>(ros2_control_test_assets::omni_wheel_robot_urdf),
     executor, "test_controller_manager");
+#endif
 
   ASSERT_NE(
     cm.load_controller("test_omni_wheel_controller", "omni_wheel_controller/OmniWheelController"),

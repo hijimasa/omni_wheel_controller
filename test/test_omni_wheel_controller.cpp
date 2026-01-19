@@ -28,6 +28,14 @@
 #include "lifecycle_msgs/msg/state.hpp"
 #include "rclcpp/rclcpp.hpp"
 
+// Check for ROS 2 Jazzy+ API changes
+#include <rclcpp/version.h>
+#if RCLCPP_VERSION_GTE(28, 0, 0)
+#define OMNI_WHEEL_ROS2_JAZZY_OR_LATER 1
+#else
+#define OMNI_WHEEL_ROS2_JAZZY_OR_LATER 0
+#endif
+
 using CallbackReturn = controller_interface::CallbackReturn;
 using hardware_interface::HW_IF_POSITION;
 using hardware_interface::HW_IF_VELOCITY;
@@ -43,7 +51,13 @@ public:
   std::shared_ptr<geometry_msgs::msg::TwistStamped> getLastReceivedTwist()
   {
     std::shared_ptr<geometry_msgs::msg::TwistStamped> ret;
+#if OMNI_WHEEL_ROS2_JAZZY_OR_LATER
+    received_velocity_msg_ptr_.get([&ret](const std::shared_ptr<geometry_msgs::msg::TwistStamped> & msg) {
+      ret = msg;
+    });
+#else
     received_velocity_msg_ptr_.get(ret);
+#endif
     return ret;
   }
 
@@ -187,9 +201,37 @@ protected:
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr velocity_publisher;
 };
 
+// Helper function to initialize controller with proper API for each ROS 2 version
+inline controller_interface::return_type init_controller(
+  TestableOmniWheelController * controller,
+  const std::string & controller_name,
+  const std::string & ns = "")
+{
+#if OMNI_WHEEL_ROS2_JAZZY_OR_LATER
+  return controller->init(controller_name, ns, 0, "", rclcpp::NodeOptions());
+#else
+  if (ns.empty()) {
+    return controller->init(controller_name);
+  } else {
+    return controller->init(controller_name, ns);
+  }
+#endif
+}
+
+// Helper function to get value from CommandInterface (handles Jazzy deprecation)
+inline double get_cmd_value(hardware_interface::CommandInterface & cmd)
+{
+#if OMNI_WHEEL_ROS2_JAZZY_OR_LATER
+  auto opt = cmd.get_optional();
+  return opt.has_value() ? opt.value() : 0.0;
+#else
+  return cmd.get_value();
+#endif
+}
+
 TEST_F(TestOmniWheelController, configure_fails_without_parameters)
 {
-  const auto ret = controller_->init(controller_name);
+  const auto ret = init_controller(controller_.get(), controller_name);
   ASSERT_EQ(ret, controller_interface::return_type::OK);
 
   ASSERT_EQ(controller_->on_configure(rclcpp_lifecycle::State()), CallbackReturn::ERROR);
@@ -197,7 +239,7 @@ TEST_F(TestOmniWheelController, configure_fails_without_parameters)
 
 TEST_F(TestOmniWheelController, configure_succeeds_when_wheels_are_specified)
 {
-  const auto ret = controller_->init(controller_name);
+  const auto ret = init_controller(controller_.get(), controller_name);
   ASSERT_EQ(ret, controller_interface::return_type::OK);
 
   controller_->get_node()->set_parameter(
@@ -215,7 +257,7 @@ TEST_F(TestOmniWheelController, configure_succeeds_when_wheels_are_specified)
 
 TEST_F(TestOmniWheelController, configure_succeeds_tf_test_prefix_false_no_namespace)
 {
-  const auto ret = controller_->init(controller_name);
+  const auto ret = init_controller(controller_.get(), controller_name);
   ASSERT_EQ(ret, controller_interface::return_type::OK);
 
   std::string odom_id = "odom";
@@ -246,7 +288,7 @@ TEST_F(TestOmniWheelController, configure_succeeds_tf_test_prefix_false_no_names
 
 TEST_F(TestOmniWheelController, configure_succeeds_tf_test_prefix_true_no_namespace)
 {
-  const auto ret = controller_->init(controller_name);
+  const auto ret = init_controller(controller_.get(), controller_name);
   ASSERT_EQ(ret, controller_interface::return_type::OK);
 
   std::string odom_id = "odom";
@@ -279,7 +321,7 @@ TEST_F(TestOmniWheelController, configure_succeeds_tf_test_prefix_true_no_namesp
 
 TEST_F(TestOmniWheelController, configure_succeeds_tf_blank_prefix_true_no_namespace)
 {
-  const auto ret = controller_->init(controller_name);
+  const auto ret = init_controller(controller_.get(), controller_name);
   ASSERT_EQ(ret, controller_interface::return_type::OK);
 
   std::string odom_id = "odom";
@@ -313,7 +355,7 @@ TEST_F(TestOmniWheelController, configure_succeeds_tf_test_prefix_false_set_name
 {
   std::string test_namespace = "/test_namespace";
 
-  const auto ret = controller_->init(controller_name, test_namespace);
+  const auto ret = init_controller(controller_.get(), controller_name, test_namespace);
   ASSERT_EQ(ret, controller_interface::return_type::OK);
 
   std::string odom_id = "odom";
@@ -346,7 +388,7 @@ TEST_F(TestOmniWheelController, configure_succeeds_tf_test_prefix_true_set_names
 {
   std::string test_namespace = "/test_namespace";
 
-  const auto ret = controller_->init(controller_name, test_namespace);
+  const auto ret = init_controller(controller_.get(), controller_name, test_namespace);
   ASSERT_EQ(ret, controller_interface::return_type::OK);
 
   std::string odom_id = "odom";
@@ -381,7 +423,7 @@ TEST_F(TestOmniWheelController, configure_succeeds_tf_blank_prefix_true_set_name
 {
   std::string test_namespace = "/test_namespace";
 
-  const auto ret = controller_->init(controller_name, test_namespace);
+  const auto ret = init_controller(controller_.get(), controller_name, test_namespace);
   ASSERT_EQ(ret, controller_interface::return_type::OK);
 
   std::string odom_id = "odom";
@@ -413,7 +455,7 @@ TEST_F(TestOmniWheelController, configure_succeeds_tf_blank_prefix_true_set_name
 
 TEST_F(TestOmniWheelController, activate_fails_without_resources_assigned)
 {
-  const auto ret = controller_->init(controller_name);
+  const auto ret = init_controller(controller_.get(), controller_name);
   ASSERT_EQ(ret, controller_interface::return_type::OK);
 
   controller_->get_node()->set_parameter(
@@ -425,7 +467,7 @@ TEST_F(TestOmniWheelController, activate_fails_without_resources_assigned)
 
 TEST_F(TestOmniWheelController, activate_succeeds_with_pos_resources_assigned)
 {
-  const auto ret = controller_->init(controller_name);
+  const auto ret = init_controller(controller_.get(), controller_name);
   ASSERT_EQ(ret, controller_interface::return_type::OK);
 
   // We implicitly test that by default position feedback is required
@@ -439,7 +481,7 @@ TEST_F(TestOmniWheelController, activate_succeeds_with_pos_resources_assigned)
 
 TEST_F(TestOmniWheelController, cleanup)
 {
-  const auto ret = controller_->init(controller_name);
+  const auto ret = init_controller(controller_.get(), controller_name);
   ASSERT_EQ(ret, controller_interface::return_type::OK);
 
   controller_->get_node()->set_parameter(
@@ -480,17 +522,17 @@ TEST_F(TestOmniWheelController, cleanup)
   ASSERT_EQ(State::PRIMARY_STATE_UNCONFIGURED, state.id());
 
   // should be stopped
-  EXPECT_EQ(0.0, wheel0_wheel_vel_cmd_.get_value());
-  EXPECT_EQ(0.0, wheel1_wheel_vel_cmd_.get_value());
-  EXPECT_EQ(0.0, wheel2_wheel_vel_cmd_.get_value());
-  EXPECT_EQ(0.0, wheel3_wheel_vel_cmd_.get_value());
+  EXPECT_EQ(0.0, get_cmd_value(wheel0_wheel_vel_cmd_));
+  EXPECT_EQ(0.0, get_cmd_value(wheel1_wheel_vel_cmd_));
+  EXPECT_EQ(0.0, get_cmd_value(wheel2_wheel_vel_cmd_));
+  EXPECT_EQ(0.0, get_cmd_value(wheel3_wheel_vel_cmd_));
 
   executor.cancel();
 }
 
 TEST_F(TestOmniWheelController, correct_initialization_using_parameters)
 {
-  const auto ret = controller_->init(controller_name);
+  const auto ret = init_controller(controller_.get(), controller_name);
   ASSERT_EQ(ret, controller_interface::return_type::OK);
 
   controller_->get_node()->set_parameter(
@@ -507,10 +549,10 @@ TEST_F(TestOmniWheelController, correct_initialization_using_parameters)
   assignResourcesPosFeedback();
 
   ASSERT_EQ(State::PRIMARY_STATE_INACTIVE, state.id());
-  EXPECT_EQ(0.01, wheel0_wheel_vel_cmd_.get_value());
-  EXPECT_EQ(0.02, wheel1_wheel_vel_cmd_.get_value());
-  EXPECT_EQ(0.03, wheel2_wheel_vel_cmd_.get_value());
-  EXPECT_EQ(0.04, wheel3_wheel_vel_cmd_.get_value());
+  EXPECT_EQ(0.01, get_cmd_value(wheel0_wheel_vel_cmd_));
+  EXPECT_EQ(0.02, get_cmd_value(wheel1_wheel_vel_cmd_));
+  EXPECT_EQ(0.03, get_cmd_value(wheel2_wheel_vel_cmd_));
+  EXPECT_EQ(0.04, get_cmd_value(wheel3_wheel_vel_cmd_));
 
   state = controller_->get_node()->activate();
   ASSERT_EQ(State::PRIMARY_STATE_ACTIVE, state.id());
@@ -525,10 +567,10 @@ TEST_F(TestOmniWheelController, correct_initialization_using_parameters)
   ASSERT_EQ(
     controller_->update(rclcpp::Time(0, 0, RCL_ROS_TIME), rclcpp::Duration::from_seconds(0.01)),
     controller_interface::return_type::OK);
-  EXPECT_NEAR(0.707107, wheel0_wheel_vel_cmd_.get_value(), 0.0001);
-  EXPECT_NEAR(0.707107, wheel1_wheel_vel_cmd_.get_value(), 0.0001);
-  EXPECT_NEAR(-0.707107, wheel2_wheel_vel_cmd_.get_value(), 0.0001);
-  EXPECT_NEAR(-0.707107, wheel3_wheel_vel_cmd_.get_value(), 0.0001);
+  EXPECT_NEAR(0.707107, get_cmd_value(wheel0_wheel_vel_cmd_), 0.0001);
+  EXPECT_NEAR(0.707107, get_cmd_value(wheel1_wheel_vel_cmd_), 0.0001);
+  EXPECT_NEAR(-0.707107, get_cmd_value(wheel2_wheel_vel_cmd_), 0.0001);
+  EXPECT_NEAR(-0.707107, get_cmd_value(wheel3_wheel_vel_cmd_), 0.0001);
 
   // deactivated
   // wait so controller process the second point when deactivated
@@ -539,18 +581,18 @@ TEST_F(TestOmniWheelController, correct_initialization_using_parameters)
     controller_->update(rclcpp::Time(0, 0, RCL_ROS_TIME), rclcpp::Duration::from_seconds(0.01)),
     controller_interface::return_type::OK);
 
-  EXPECT_EQ(0.0, wheel0_wheel_vel_cmd_.get_value()) << "Wheels are halted on deactivate()";
-  EXPECT_EQ(0.0, wheel1_wheel_vel_cmd_.get_value()) << "Wheels are halted on deactivate()";
-  EXPECT_EQ(0.0, wheel2_wheel_vel_cmd_.get_value()) << "Wheels are halted on deactivate()";
-  EXPECT_EQ(0.0, wheel3_wheel_vel_cmd_.get_value()) << "Wheels are halted on deactivate()";
+  EXPECT_EQ(0.0, get_cmd_value(wheel0_wheel_vel_cmd_)) << "Wheels are halted on deactivate()";
+  EXPECT_EQ(0.0, get_cmd_value(wheel1_wheel_vel_cmd_)) << "Wheels are halted on deactivate()";
+  EXPECT_EQ(0.0, get_cmd_value(wheel2_wheel_vel_cmd_)) << "Wheels are halted on deactivate()";
+  EXPECT_EQ(0.0, get_cmd_value(wheel3_wheel_vel_cmd_)) << "Wheels are halted on deactivate()";
 
   // cleanup
   state = controller_->get_node()->cleanup();
   ASSERT_EQ(State::PRIMARY_STATE_UNCONFIGURED, state.id());
-  EXPECT_EQ(0.0, wheel0_wheel_vel_cmd_.get_value());
-  EXPECT_EQ(0.0, wheel1_wheel_vel_cmd_.get_value());
-  EXPECT_EQ(0.0, wheel2_wheel_vel_cmd_.get_value());
-  EXPECT_EQ(0.0, wheel3_wheel_vel_cmd_.get_value());
+  EXPECT_EQ(0.0, get_cmd_value(wheel0_wheel_vel_cmd_));
+  EXPECT_EQ(0.0, get_cmd_value(wheel1_wheel_vel_cmd_));
+  EXPECT_EQ(0.0, get_cmd_value(wheel2_wheel_vel_cmd_));
+  EXPECT_EQ(0.0, get_cmd_value(wheel3_wheel_vel_cmd_));
 
   state = controller_->get_node()->configure();
   ASSERT_EQ(State::PRIMARY_STATE_INACTIVE, state.id());
